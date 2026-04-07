@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nearfall v17</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background:#0b1730; color:#fff; padding:16px; margin:0; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { text-align:center; margin: 8px 0 18px; }
+  .card { background:#132447; padding:16px; border-radius:14px; margin-bottom:12px; }
+  .row { display:flex; flex-wrap:wrap; gap:10px; }
+  .row > * { flex:1 1 180px; }
+  button {
+    padding:14px; border:none; border-radius:10px; background:#2d6fdd; color:white;
+    font-weight:bold; font-size:16px; cursor:pointer;
+  }
+  button.secondary { background:#42506d; }
+  input, select {
+    width:100%; padding:12px; border-radius:10px; border:1px solid #314260; background:#091225; color:white; margin-top:8px;
+  }
+  .pill { display:inline-block; background:#243454; color:#dbe6ff; padding:6px 10px; border-radius:999px; font-size:12px; margin-right:6px; margin-top:6px; }
+  .statline { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #213253; }
+  .statline:last-child { border-bottom:none; }
+  .smallbtn { width:44px; padding:8px 0; margin-left:6px; }
+  .grid { display:grid; grid-template-columns: 1fr; gap:12px; }
+  @media (min-width: 800px){ .grid { grid-template-columns:1fr 1fr; } }
+  .score { font-size:28px; font-weight:800; text-align:center; }
+  .muted { color:#bdd0ff; font-size:14px; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; }
+  th, td { text-align:left; padding:8px 4px; border-bottom:1px solid #213253; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>NEARFALL v17</h1>
+  <div id="app"></div>
+</div>
+
+<script>
+(() => {
+  const app = document.getElementById("app");
+  const teams = ["Iowa","Penn State","Oklahoma State","Ohio State","Texas","Michigan","Nebraska","Virginia Tech"];
+  const heights = ["5-4","5-5","5-6","5-7","5-8","5-9","5-10","5-11","6-0","6-1","6-2","6-3","6-4"];
+  const weights = ["125","133","141","149","157","165","174","184","197","285"];
+  const styles = ["Powerhouse","Technician","Scrambler"];
+  const firstNames = ["Jace","Ty","Evan","Cole","Mason","Logan","Luke","Noah","Blake","Ryder","Parker","Grant","Caleb","Dylan","Brady","Zane","Aiden","Brock","Gavin","Wyatt"];
+  const lastNames = ["Miller","Harris","Taylor","Young","Porter","Hayes","Woods","Keller","Stone","Cooper","Bennett","Foster","Reed","Perry","Ward","Lawson","Carter","Palmer","Morgan","Russell"];
+
+  const state = {
+    player: null,
+    pointsLeft: 20,
+    schedule: [],
+    week: 1,
+    season: 1,
+    opponent: null,
+    match: null,
+    phase: "home",
+    teamRankings: [],
+    individualRankings: []
+  };
+
+  function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+  function pick(arr){ return arr[rand(0, arr.length-1)]; }
+  function randomName(){ return pick(firstNames)+" "+pick(lastNames); }
+  function setApp(html){ app.innerHTML = html; }
+  function bind(id, fn){ const el=document.getElementById(id); if(el) el.addEventListener("click", fn); }
+
+  function resetPlayer(){
+    state.player = {
+      name:"Wrestler", team:"", teamRank:12, weight:"157", height:"5-10", age:18, classYear:"Freshman", style:"",
+      rank:25, stars:3, wins:0, losses:0, teamWins:0, teamLosses:0,
+      offense:60, defense:60, top:60, bottom:60, strength:60, stamina:60, clutch:60, speed:60, technique:60, awareness:60
+    };
+    state.pointsLeft = 20;
+    state.schedule = [];
+    state.week = 1;
+    state.season = 1;
+    state.opponent = null;
+    state.match = null;
+  }
+
+  function generateRankings(){
+    state.teamRankings = teams.map(team => ({team, score: rand(70,99)})).sort((a,b)=>b.score-a.score);
+    state.individualRankings = [];
+    for(let i=1;i<=25;i++){
+      state.individualRankings.push({rank:i, name: randomName(), school: pick(teams), weight: state.player ? state.player.weight : "157"});
+    }
+    if(state.player){
+      state.individualRankings[24] = {rank: state.player.rank, name: state.player.name, school: state.player.team, weight: state.player.weight};
+      state.individualRankings.sort((a,b)=>a.rank-b.rank);
+      let idx = state.teamRankings.findIndex(t => t.team === state.player.team);
+      if(idx >= 0){
+        state.teamRankings[idx].score = 75 + Math.max(0, 25 - state.player.teamRank);
+        state.teamRankings.sort((a,b)=>b.score-a.score);
+        state.player.teamRank = state.teamRankings.findIndex(t => t.team === state.player.team) + 1;
+      }
+    }
+  }
+
+  function playerCard(){
+    const p = state.player;
+    return `
+      <div class="card">
+        <h2>Player Profile</h2>
+        <div class="pill">${p.team}</div><div class="pill">${p.classYear}</div><div class="pill">${p.weight}</div><div class="pill">${p.style}</div>
+        <p><strong>${p.name}</strong></p>
+        <p class="muted">Age ${p.age} • Height ${p.height} • ${p.stars}★ recruit</p>
+        <p class="muted">Ind Rank #${p.rank} • Team Rank #${p.teamRank}</p>
+        <p class="muted">Record ${p.wins}-${p.losses}</p>
+        ${["offense","defense","top","bottom","strength","stamina","clutch","speed","technique","awareness"].map(k =>
+          `<div class="statline"><span>${label(k)}</span><strong>${p[k]}</strong></div>`).join("")}
+      </div>
+    `;
+  }
+
+  function oppCard(){
+    const o = state.opponent;
+    if(!o) return "";
+    return `
+      <div class="card">
+        <h2>Opponent Info</h2>
+        <div class="pill">${o.school}</div><div class="pill">${o.year}</div><div class="pill">${o.weight}</div><div class="pill">${o.style}</div>
+        <p><strong>${o.name}</strong></p>
+        <p class="muted">Rank #${o.rank}</p>
+        ${["offense","defense","top","bottom","strength","stamina","clutch","speed","technique","awareness"].map(k =>
+          `<div class="statline"><span>${label(k)}</span><strong>${o[k]}</strong></div>`).join("")}
+      </div>
+    `;
+  }
+
+  function label(k){
+    return ({
+      offense:"Offense", defense:"Defense", top:"Top Control", bottom:"Bottom", strength:"Strength",
+      stamina:"Stamina", clutch:"Clutch", speed:"Speed", technique:"Technique", awareness:"Awareness"
+    })[k];
+  }
+
+  function teamCard(){
+    const p = state.player;
+    return `
+      <div class="card">
+        <h2>Team Info</h2>
+        <p><strong>${p.team}</strong></p>
+        <p class="muted">Season ${state.season} • Week ${state.week}</p>
+        <p class="muted">Dual Record ${p.teamWins}-${p.teamLosses}</p>
+      </div>
+    `;
+  }
+
+  function renderHome(){
+    state.phase = "home";
+    resetPlayer();
+    setApp(`
+      <div class="card">
+        <h2>Create Your Wrestler</h2>
+        <p class="muted">Build your wrestler with a larger attribute set.</p>
+        <input id="playerName" value="${state.player.name}">
+        <div class="row">
+          ${teams.map((t,i)=>`<button id="team-${i}">${t}</button>`).join("")}
+        </div>
+      </div>
+    `);
+    teams.forEach((t,i)=>bind(`team-${i}`, ()=>renderStyle(t)));
+  }
+
+  function renderStyle(team){
+    state.player.name = document.getElementById("playerName").value || "Wrestler";
+    state.player.team = team;
+    state.player.teamRank = rand(5,20);
+    setApp(`
+      <div class="card">
+        <h2>${state.player.name}</h2>
+        <div class="pill">${team}</div>
+        <p class="muted">Pick a style.</p>
+        <div class="row">
+          ${styles.map((s,i)=>`<button id="style-${i}">${s}</button>`).join("")}
+          <button id="back-home" class="secondary">Back</button>
+        </div>
+      </div>
+    `);
+    styles.forEach((s,i)=>bind(`style-${i}`, ()=>pickStyle(s)));
+    bind("back-home", renderHome);
+  }
+
+  function pickStyle(style){
+    Object.assign(state.player, {
+      style, offense:60, defense:60, top:60, bottom:60, strength:60,
+      stamina:60, clutch:60, speed:60, technique:60, awareness:60
+    });
+    state.pointsLeft = 20;
+    if(style==="Powerhouse"){ state.player.strength += 8; state.player.top += 4; }
+    if(style==="Technician"){ state.player.offense += 6; state.player.defense += 6; state.player.technique += 4; }
+    if(style==="Scrambler"){ state.player.bottom += 8; state.player.speed += 4; state.player.offense += 3; }
+    renderBuilder();
+  }
+
+  function renderBuilder(){
+    const p = state.player;
+    setApp(`
+      <div class="card">
+        <h2>Build Wrestler</h2>
+        <div class="pill">${p.team}</div><div class="pill">${p.style}</div>
+        <input id="nameInput" value="${p.name}">
+        <p><strong>Height</strong></p>
+        <select id="heightSel">${heights.map(h=>`<option ${p.height===h?"selected":""}>${h}</option>`).join("")}</select>
+        <p><strong>Weight</strong></p>
+        <select id="weightSel">${weights.map(w=>`<option ${p.weight===w?"selected":""}>${w}</option>`).join("")}</select>
+        <p><strong>Attribute Points Left: ${state.pointsLeft}</strong></p>
+        ${["offense","defense","top","bottom","strength","stamina","clutch","speed","technique","awareness"].map(k => `
+          <div class="statline">
+            <div>${label(k)}: <strong>${p[k]}</strong></div>
+            <div>
+              <button id="minus-${k}" class="smallbtn secondary">-</button>
+              <button id="plus-${k}" class="smallbtn">+</button>
+            </div>
+          </div>`).join("")}
+        <div class="row">
+          <button id="start-career">Start Career</button>
+          <button id="back-style" class="secondary">Back</button>
+        </div>
+      </div>
+    `);
+
+    ["offense","defense","top","bottom","strength","stamina","clutch","speed","technique","awareness"].forEach(k=>{
+      bind(`minus-${k}`, ()=>{ if(state.player[k] <= 45) return; state.player[k]--; state.pointsLeft++; renderBuilder(); });
+      bind(`plus-${k}`, ()=>{ if(state.pointsLeft <= 0 || state.player[k] >= 99) return; state.player[k]++; state.pointsLeft--; renderBuilder(); });
+    });
+
+    bind("start-career", ()=>{
+      state.player.name = document.getElementById("nameInput").value || "Wrestler";
+      state.player.height = document.getElementById("heightSel").value;
+      state.player.weight = document.getElementById("weightSel").value;
+      buildSchedule();
+      generateRankings();
+      renderSeasonHub();
+    });
+    bind("back-style", ()=>renderStyle(state.player.team));
+  }
+
+  function buildSchedule(){
+    state.schedule = teams.filter(t=>t!==state.player.team).slice(0,6).map((team,idx)=>({week:idx+1, opponentTeam:team}));
+  }
+
+  function renderSeasonHub(){
+    state.phase = "season";
+    setApp(`
+      <div class="grid">
+        ${playerCard()}
+        ${teamCard()}
+      </div>
+      <div class="card">
+        <h2>Season Hub</h2>
+        <table>
+          <thead><tr><th>Week</th><th>Dual</th><th>Status</th></tr></thead>
+          <tbody>
+            ${state.schedule.map(g=>`<tr><td>${g.week}</td><td>${state.player.team} vs ${g.opponentTeam}</td><td>${g.week===state.week?"Next":(g.week<state.week?"Done":"Upcoming")}</td></tr>`).join("")}
+          </tbody>
+        </table>
+        <div class="row">
+          <button id="next-match">Next Match</button>
+          <button id="ind-ranks" class="secondary">Individual Rankings</button>
+          <button id="team-ranks" class="secondary">Team Rankings</button>
+        </div>
+      </div>
+    `);
+    bind("next-match", startMatch);
+    bind("ind-ranks", renderIndividualRankings);
+    bind("team-ranks", renderTeamRankings);
+  }
+
+  function makeOpponent(team, boost=0){
+    return {
+      name: randomName(), school: team, weight: state.player.weight, rank: rand(Math.max(1,8-boost),30), year: pick(["Fr","So","Jr","Sr"]),
+      style: pick(["Power","Scrambler","Technician","Rider"]),
+      offense: rand(60+boost,82+boost), defense: rand(60+boost,82+boost), top: rand(60+boost,82+boost),
+      bottom: rand(60+boost,82+boost), strength: rand(60+boost,82+boost), stamina: rand(60+boost,82+boost),
+      clutch: rand(60+boost,82+boost), speed: rand(60+boost,82+boost), technique: rand(60+boost,82+boost), awareness: rand(60+boost,82+boost)
+    };
+  }
+
+  function startMatch(){
+    const game = state.schedule.find(g=>g.week===state.week);
+    if(!game){ renderSeasonComplete(); return; }
+    state.opponent = makeOpponent(game.opponentTeam);
+    state.match = { your:0, opp:0, pos:"neutral", period:1, clock:120 };
+    renderMatch("Dual meet started.");
+  }
+
+  function renderMatch(message){
+    const m = state.match;
+    let actions = "";
+    if(m.pos === "neutral"){
+      actions = `<button id="shoot">Shoot</button><button id="handfight">Hand Fight</button><button id="snap">Snap</button><button id="sprawl" class="secondary">Sprawl</button><button id="recover" class="secondary">Recover</button>`;
+    } else if(m.pos === "top"){
+      actions = `<button id="ride">Ride</button><button id="turn">Turn</button><button id="pin">Pin Attempt</button><button id="matreturn">Mat Return</button><button id="cut" class="secondary">Cut Loose</button>`;
+    } else {
+      actions = `<button id="stand">Stand Up</button><button id="escape">Escape</button><button id="switch">Switch</button><button id="granby">Granby</button><button id="base" class="secondary">Recover Base</button>`;
+    }
+    setApp(`
+      <div class="grid">
+        ${playerCard()}
+        ${oppCard()}
+      </div>
+      <div class="card">
+        <h2>Match</h2>
+        <div class="score">You ${m.your} - ${m.opp} Opp</div>
+        <p class="muted">Period ${m.period} • ${Math.floor(m.clock/60)}:${String(m.clock%60).padStart(2,"0")} • Position ${m.pos.toUpperCase()}</p>
+        <p>${message}</p>
+        <div class="row">${actions}</div>
+      </div>
+    `);
+
+    ["shoot","handfight","snap","sprawl","recover","ride","turn","pin","matreturn","cut","stand","escape","switch","granby","base"].forEach(id=>{
+      const map = {
+        shoot:actShoot, handfight:actHandFight, snap:actSnap, sprawl:actSprawl, recover:actRecover,
+        ride:actRide, turn:actTurn, pin:actPin, matreturn:actMatReturn, cut:actCut,
+        stand:actStand, escape:actEscape, switch:actSwitch, granby:actGranby, base:actBase
+      };
+      bind(id, map[id]);
+    });
+  }
+
+  function oppNeutralCounter(){
+    const p = state.player, o = state.opponent, m = state.match;
+    const roll = o.offense + Math.floor(o.speed/8) + rand(-8,8);
+    const defend = p.defense + Math.floor(p.awareness/10) + rand(-8,8);
+    if(roll > defend + 5){ m.opp += 3; m.pos = "bottom"; return "Opponent scored a takedown."; }
+    return "No score.";
+  }
+
+  function tickClock(){
+    const m = state.match;
+    const drain = rand(18, 35);
+    m.clock -= drain;
+    if(m.clock <= 0){
+      m.period += 1;
+      m.clock = 120;
+    }
+  }
+
+  function maybeFinish(message){
+    const m = state.match;
+    if(m.your >= 15 && m.your - m.opp >= 15){ finishRegular(true, "Technical Fall"); return true; }
+    if(m.opp >= 15 && m.opp - m.your >= 15){ finishRegular(false, "Technical Fall"); return true; }
+    if(m.period > 3){ finishRegular(m.your > m.opp, m.your > m.opp ? "Decision" : "Loss"); return true; }
+    renderMatch(message);
+    return false;
+  }
+
+  function actShoot(){
+    const p = state.player, o = state.opponent, m = state.match;
+    const roll = p.offense + Math.floor(p.speed/8) + Math.floor(p.technique/10) + rand(-8,8);
+    const defend = o.defense + Math.floor(o.awareness/10) + rand(-8,8);
+    let msg = "You shot from neutral. ";
+    if(roll > defend + 5){ m.your += 3; m.pos = "top"; msg += "Takedown."; }
+    else msg += oppNeutralCounter();
+    tickClock(); maybeFinish(msg);
+  }
+  function actHandFight(){ tickClock(); maybeFinish("You hand fought and controlled ties. " + oppNeutralCounter()); }
+  function actSnap(){ const m=state.match; if(state.player.technique + rand(-8,8) > 68){ m.pos="top"; m.your += 1; } tickClock(); maybeFinish("You snapped and created action."); }
+  function actSprawl(){ tickClock(); maybeFinish("You sprawled and blocked the next attack."); }
+  function actRecover(){ tickClock(); maybeFinish("You slowed the pace and recovered."); }
+  function actRide(){ const m=state.match; if(state.player.top + rand(-8,8) > state.opponent.bottom + rand(-8,8)) m.your += 2; else m.pos="neutral"; tickClock(); maybeFinish("You rode hard on top."); }
+  function actTurn(){ const m=state.match; if(state.player.top + state.player.technique/2 + rand(-8,8) > state.opponent.bottom + rand(-8,8)) m.your += 2; tickClock(); maybeFinish("You looked for a turn."); }
+  function actPin(){ const m=state.match; if(state.player.top + state.player.strength + rand(-10,10) > state.opponent.defense + state.opponent.bottom + 18){ finishRegular(true, "Pin"); return; } tickClock(); maybeFinish("You went for the pin."); }
+  function actMatReturn(){ const m=state.match; if(state.player.strength + rand(-8,8) > 68){ m.your += 1; m.pos="top"; } tickClock(); maybeFinish("You returned him to the mat."); }
+  function actCut(){ const m=state.match; m.opp += 1; m.pos="neutral"; tickClock(); maybeFinish("You cut him loose."); }
+  function actStand(){ const m=state.match; if(state.player.bottom + state.player.speed/2 + rand(-8,8) > 70){ m.your += 1; m.pos="neutral"; } tickClock(); maybeFinish("You stood up from bottom."); }
+  function actEscape(){ const m=state.match; if(state.player.bottom + rand(-8,8) > state.opponent.top + rand(-8,8)){ m.your += 1; m.pos="neutral"; } tickClock(); maybeFinish("You worked for an escape."); }
+  function actSwitch(){ const m=state.match; if(state.player.bottom + state.player.technique/2 + rand(-8,8) > 72){ m.your += 2; m.pos="top"; } tickClock(); maybeFinish("You hit a switch."); }
+  function actGranby(){ const m=state.match; if(state.player.speed + state.player.awareness/2 + rand(-8,8) > 72){ m.your += 1; m.pos="neutral"; } tickClock(); maybeFinish("You rolled through with a granby."); }
+  function actBase(){ tickClock(); maybeFinish("You recovered your base on bottom."); }
+
+  function finishRegular(win, resultType){
+    if(win){ state.player.wins += 1; state.player.rank = Math.max(1, state.player.rank - 1); }
+    else { state.player.losses += 1; state.player.rank += 1; }
+    generateRankings();
+    setApp(`
+      <div class="card">
+        <h2>${win ? "Win" : "Loss"}</h2>
+        <p>Result: <strong>${resultType}</strong></p>
+        <p>Final Score: You ${state.match.your} - ${state.match.opp} Opp</p>
+        <div class="row">
+          <button id="continue">Continue</button>
+        </div>
+      </div>
+    `);
+    bind("continue", ()=>{
+      state.week += 1;
+      renderSeasonHub();
+    });
+  }
+
+  function renderIndividualRankings(){
+    generateRankings();
+    setApp(`
+      <div class="card">
+        <h2>Individual Rankings</h2>
+        <table><thead><tr><th>Rank</th><th>Name</th><th>School</th><th>Weight</th></tr></thead><tbody>
+          ${state.individualRankings.map(r=>`<tr ${r.name===state.player.name?'style="background:#16284f;"':""}><td>#${r.rank}</td><td>${r.name}</td><td>${r.school}</td><td>${r.weight}</td></tr>`).join("")}
+        </tbody></table>
+        <div class="row"><button id="back">Back</button></div>
+      </div>
+    `);
+    bind("back", renderSeasonHub);
+  }
+
+  function renderTeamRankings(){
+    generateRankings();
+    setApp(`
+      <div class="card">
+        <h2>Team Rankings</h2>
+        <table><thead><tr><th>Rank</th><th>Team</th><th>Score</th></tr></thead><tbody>
+          ${state.teamRankings.map((r,i)=>`<tr ${r.team===state.player.team?'style="background:#16284f;"':""}><td>#${i+1}</td><td>${r.team}</td><td>${r.score}</td></tr>`).join("")}
+        </tbody></table>
+        <div class="row"><button id="back">Back</button></div>
+      </div>
+    `);
+    bind("back", renderSeasonHub);
+  }
+
+  function renderSeasonComplete(){
+    setApp(`
+      <div class="card">
+        <h2>Season Complete</h2>
+        <p>Season ${state.season} finished.</p>
+        <p>Record: ${state.player.wins}-${state.player.losses}</p>
+        <div class="row">
+          <button id="nextSeason">Next Season</button>
+          <button id="newWrestler" class="secondary">New Wrestler</button>
+        </div>
+      </div>
+    `);
+    bind("nextSeason", nextSeason);
+    bind("newWrestler", renderHome);
+  }
+
+  function nextSeason(){
+    state.season += 1;
+    state.week = 1;
+    state.player.age += 1;
+    if(state.player.classYear==="Freshman") state.player.classYear="Sophomore";
+    else if(state.player.classYear==="Sophomore") state.player.classYear="Junior";
+    else if(state.player.classYear==="Junior") state.player.classYear="Senior";
+    ["offense","defense","top","bottom","strength","stamina","clutch","speed","technique","awareness"].forEach(k=>state.player[k]+=2);
+    state.player.wins = 0;
+    state.player.losses = 0;
+    buildSchedule();
+    generateRankings();
+    renderSeasonHub();
+  }
+
+  renderHome();
+})();
+</script>
+</body>
+</html>
