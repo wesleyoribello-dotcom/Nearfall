@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NEARFALL V10</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      background: #0b0f1a;
+      color: white;
+      font-family: Arial;
+      text-align: center;
+      padding: 20px;
+    }
+    button {
+      padding: 15px;
+      margin: 10px;
+      width: 90%;
+      font-size: 18px;
+      border-radius: 10px;
+      border: none;
+      background: #1f6feb;
+      color: white;
+    }
+    .card {
+      background: #111827;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>NEARFALL</h1>
+<p>NCAA Wrestling Dynasty</p>
+
+<button onclick="startGame()">Start Career</button>
+
+<script>
+
+let player = {
+  name: "Wes Oribello",
+  school: "",
+  offense: 70,
+  defense: 65,
+  wins: 0,
+  losses: 0,
+  rank: 25
+}
+
+let week = 1
+
+let teams = ["Iowa", "Penn State", "Oklahoma State", "Ohio State", "Texas"]
+
+function startGame(){
+  let html = "<h2>Pick Your Team</h2>"
+
+  teams.forEach(t => {
+    html += `<button onclick="chooseTeam('${t}')">${t}</button>`
+  })
+
+  document.body.innerHTML = html
+}
+
+function chooseTeam(team){
+  player.school = team
+  seasonScreen()
+}
+
+function seasonScreen(){
+  document.body.innerHTML = `
+    <div class="card">
+      <h2>${player.name}</h2>
+      <p>${player.school}</p>
+      <p>Rank: #${player.rank}</p>
+      <p>Record: ${player.wins}-${player.losses}</p>
+      <p>Week: ${week}</p>
+    </div>
+
+    <button onclick="startMatch()">Next Match</button>
+    <button onclick="simulateSeason()">Sim to Tournament</button>
+  `
+}
+
+function startMatch(){
+
+  let opp = generateOpponent()
+
+  let score = 0
+  let oppScore = 0
+
+  document.body.innerHTML = `
+    <h2>Match vs ${opp.name} (${opp.school})</h2>
+    <p id="score">0 - 0</p>
+
+    <button onclick="scorePoints()">Attack</button>
+    <button onclick="defend()">Defend</button>
+  `
+
+  function update(){
+    document.getElementById("score").innerText = score + " - " + oppScore
+
+    if(score >= 15){
+      endMatch(true, "TECH FALL")
+    }
+
+    if(oppScore >= 15){
+      endMatch(false, "TECH FALL")
+    }
+  }
+
+  window.scorePoints = function(){
+    let pts = Math.random() < 0.6 ? 2 : 0
+    score += pts
+
+    if(Math.random() < 0.3){
+      oppScore += 2
+    }
+
+    update()
+  }
+
+  window.defend = function(){
+    if(Math.random() < 0.4){
+      oppScore += 2
+    }
+    update()
+  }
+
+  function endMatch(win, type){
+    if(win){
+      player.wins++
+      player.rank -= 1
+    } else {
+      player.losses++
+      player.rank += 1
+    }
+
+    document.body.innerHTML = `
+      <h2>${win ? "WIN" : "LOSS"} (${type})</h2>
+      <p>Record: ${player.wins}-${player.losses}</p>
+      <button onclick="nextWeek()">Continue</button>
+    `
+  }
+}
+
+function generateOpponent(){
+  let names = ["Smith","Lee","Jordan","Brooks","Fix","Yianni","Carr"]
+  let schools = ["Iowa","PSU","OKST","OSU","Michigan"]
+
+  return {
+    name: names[Math.floor(Math.random()*names.length)],
+    school: schools[Math.floor(Math.random()*schools.length)]
+  }
+}
+
+function nextWeek(){
+  week++
+
+  if(week > 10){
+    conferenceTournament()
+  } else {
+    seasonScreen()
+  }
+}
+
+function simulateSeason(){
+  week = 11
+  conferenceTournament()
+}
+
+function conferenceTournament(){
+  document.body.innerHTML = `
+    <h2>Conference Tournament</h2>
+    <button onclick="nationals()">Advance to Nationals</button>
+  `
+}
+
+function nationals(){
+
+  let placement = Math.floor(Math.random()*8)+1
+
+  document.body.innerHTML = `
+    <h2>NCAA Tournament</h2>
+    <p>You placed #${placement}</p>
+    <button onclick="restart()">New Season</button>
+  `
+}
+
+function restart(){
+  week = 1
+  player.wins = 0
+  player.losses = 0
+  player.rank = 25
+  startGame()
+}
+
+</script>
+
+</body>
+</html>
